@@ -149,8 +149,9 @@ class Text(object):
             sentences = self.sentence_split(text)
         else:
             sentences = []
-            for line in text:
-                sentences += self.sentence_split(line)
+            if text is not None:
+                for line in text:
+                    sentences += self.sentence_split(line)
         passing = filter(self.test_sentence_input, sentences)
         runs = map(self.word_split, passing)
         return runs
@@ -273,6 +274,32 @@ class Text(object):
                 return output
 
         return None
+
+    def update(self, input_text, parsed_sentences=None):
+        """
+        Update the internal Chain with the `input_text`.
+
+        Useful for incrementally building one Text from separate chunks of
+        a corpus too large to store in memory all at once.
+
+        This instance of Text will be mutated (this function returns None).
+        The `input_text` will be processed with the same `state_size` as
+        this instance.
+
+        If `self.retain_original=True`, then `self.parsed_sentences` and
+        `self.rejoined_text` will also be updated with the new sentences.
+
+        Provide one or both of:
+        input_text: A string.
+        parsed_sentences: A list of lists, where each outer list is a "run"
+              of the process (e.g. a single sentence), and each inner list
+              contains the steps (e.g. words) in the run.
+        """
+        new_parsed_sentences = parsed_sentences or self.generate_corpus(input_text)
+        if self.retain_original:
+            self.parsed_sentences += new_parsed_sentences
+            self.rejoined_text += self.sentence_join(map(self.word_join, self.parsed_sentences))
+        self.chain.update(new_parsed_sentences)
 
     @classmethod
     def from_chain(cls, chain_json, corpus=None, parsed_sentences=None):

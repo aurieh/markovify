@@ -1,7 +1,10 @@
-import unittest
-import markovify
-import sys, os
 import operator
+import os
+import sys
+import unittest
+
+import markovify
+from markovify.chain import BEGIN, END
 
 def get_sorted(chain_json):
     return sorted(chain_json, key=operator.itemgetter(0))
@@ -158,6 +161,35 @@ class MarkovifyTestBase(unittest.TestCase):
 
         model = markovify.NewlineText('This sentence (would normall fail', well_formed = False)
 
+    def test_chain_update(self):
+        chain = markovify.Chain([["foo", "bar"]], state_size=1)
+        assert len(chain.model.keys()) == 3
+        assert "testing" not in chain.begin_choices
+
+        chain.update([["testing", "testing"]])
+        assert len(chain.model.keys()) == 4
+        assert "testing" in chain.begin_choices
+
+    def test_none_text(self):
+        text_model = markovify.Text(None)
+        assert text_model.chain.model == {}
+        assert not hasattr(text_model, 'parsed_sentences')
+        assert text_model.make_sentence() == ''
+
+    def test_empty_text_retain(self):
+        text_model = markovify.Text('', state_size=1)
+        assert text_model.chain.model == {}
+        assert text_model.parsed_sentences == []
+        assert text_model.rejoined_text == ''
+        # generated sentence: '' was rejected since it matches rejoined_text
+        assert text_model.make_sentence() is None
+
+    def test_empty_text_no_retain(self):
+        text_model = markovify.Text('', state_size=1, retain_original=False)
+        assert text_model.chain.model == {}
+        assert not hasattr(text_model, 'parsed_sentences')
+        assert text_model.make_sentence() == ''
+
 class MarkovifyTest(MarkovifyTestBase):
     __test__ = True
 
@@ -166,6 +198,15 @@ class MarkovifyTest(MarkovifyTestBase):
         sherlock_model = markovify.Text(sherlock_text)
         sherlock_model_ss2 = markovify.Text(sherlock_text, state_size = 2)
         sherlock_model_ss3 = markovify.Text(sherlock_text, state_size = 3)
+
+    def test_text_update(self):
+        text_model = self.sherlock_model
+        orig_parsed_sent_len = len(text_model.parsed_sentences)
+        orig_rejoined_text_len = len(text_model.rejoined_text)
+
+        text_model.update(self.sherlock_text)
+        assert len(text_model.parsed_sentences) > orig_parsed_sent_len
+        assert len(text_model.rejoined_text) > orig_rejoined_text_len
 
 class MarkovifyTestCompiled(MarkovifyTestBase):
     __test__ = True
